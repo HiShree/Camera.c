@@ -1,1 +1,924 @@
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#08090c">
+<title>Horizon Film Pro</title>
+
+<style>
+:root {
+  --accent: #ffcc66;
+  --panel: rgba(15,17,22,.94);
+  --muted: #a4a8b2;
+}
+* { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html,body {
+  margin:0; width:100%; height:100%; overflow:hidden;
+  background:#000; color:#fff;
+  font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+button,input,select { font:inherit; }
+button { color:inherit; cursor:pointer; }
+#app {
+  position:relative; height:100dvh; width:100%;
+  overflow:hidden; background:#000;
+}
+#camera,#output {
+  position:absolute; inset:0; width:100%; height:100%;
+}
+#camera { display:none; }
+#output { object-fit:contain; }
+.topbar {
+  position:absolute; top:env(safe-area-inset-top, 0px);
+  left:0; right:0; padding:12px;
+  display:flex; align-items:center; justify-content:space-between;
+  gap:8px; z-index:5; pointer-events:none;
+}
+.topbar > * { pointer-events:auto; }
+.glass {
+  border:1px solid #ffffff35; background:#101116b8;
+  backdrop-filter:blur(12px); border-radius:22px;
+}
+.small-btn {
+  min-height:40px; padding:0 13px; border-radius:22px;
+  border:1px solid #ffffff35; background:#11131ac9;
+  font-size:12px; font-weight:650;
+}
+.brand { font-size:12px; font-weight:800; letter-spacing:1.3px; }
+.statusline {
+  position:absolute; top:68px; left:50%; transform:translateX(-50%);
+  max-width:90%; padding:7px 12px; border-radius:18px;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  font-size:11px; color:#fff; background:#090a0dc9;
+  z-index:4; border:1px solid #ffffff22;
+}
+.level {
+  position:absolute; left:10%; right:10%; top:50%;
+  height:1px; z-index:2; pointer-events:none;
+  background:#ffffff65; box-shadow:0 0 2px #000;
+}
+.level::before,.level::after {
+  content:""; position:absolute; top:-5px; height:11px; width:1px;
+  background:#ffffffa0;
+}
+.level::before { left:0; }
+.level::after { right:0; }
+.level-line {
+  position:absolute; width:34%; height:2px; left:33%; top:-1px;
+  background:var(--accent); box-shadow:0 0 8px #000;
+}
+.level-dot {
+  position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+  width:8px; height:8px; border:1px solid white; border-radius:50%;
+}
+.bottom {
+  position:absolute; z-index:5; bottom:0; left:0; right:0;
+  padding:18px 24px calc(18px + env(safe-area-inset-bottom,0px));
+  display:flex; align-items:center; justify-content:center; gap:34px;
+  background:linear-gradient(transparent,rgba(0,0,0,.72));
+}
+.shutter {
+  width:76px; height:76px; border-radius:50%;
+  background:#fff; border:5px solid #aaa;
+  box-shadow:0 0 0 4px #ffffff28;
+  position:relative; flex-shrink:0;
+}
+.shutter:after {
+  content:""; position:absolute; inset:5px; border-radius:50%;
+  border:1px solid #0002;
+}
+.shutter.recording { background:#ff404d; border-color:#ffb0b5; }
+.shutter.recording:after { inset:21px; border-radius:5px; background:#fff; }
+.stop {
+  width:54px; height:54px; border-radius:50%;
+  background:#272a31; border:1px solid #ffffff55;
+  display:grid; place-items:center;
+}
+.stop span { width:17px; height:17px; border-radius:3px; background:#fff; }
+.side-label { font-size:10px; color:#ddd; text-align:center; margin-top:8px; }
+.control-group { display:flex; flex-direction:column; align-items:center; }
+#settings {
+  position:absolute; z-index:10; top:62px; right:10px;
+  width:min(340px, calc(100vw - 20px));
+  max-height:calc(100dvh - 160px); overflow:auto;
+  padding:16px; display:none; background:var(--panel);
+  border:1px solid #ffffff2b; border-radius:18px;
+  box-shadow:0 12px 40px #000a;
+}
+#settings.open { display:block; }
+.panel-title {
+  display:flex; align-items:center; justify-content:space-between;
+  font-size:14px; font-weight:800; margin-bottom:14px;
+}
+.section { border-top:1px solid #ffffff18; padding:12px 0; }
+.section:first-of-type { border-top:0; }
+.label-row { display:flex; justify-content:space-between; gap:10px; font-size:12px; margin-bottom:9px; }
+.value { color:var(--accent); font-variant-numeric:tabular-nums; }
+select, .panel-btn {
+  width:100%; padding:10px; border-radius:10px;
+  border:1px solid #ffffff27; color:#fff; background:#252831;
+}
+input[type=range] { width:100%; accent-color:var(--accent); }
+.toggle-row {
+  display:flex; justify-content:space-between; align-items:center;
+  gap:12px; font-size:12px; margin:10px 0;
+}
+.toggle-row input { accent-color:var(--accent); width:18px; height:18px; }
+.panel-btn { font-size:12px; font-weight:700; margin-top:8px; }
+.primary { background:var(--accent); color:#17130c; border:0; }
+.hint { font-size:10px; color:var(--muted); line-height:1.45; margin-top:8px; }
+#recordStatus {
+  position:absolute; z-index:4; top:112px; left:50%; transform:translateX(-50%);
+  display:none; align-items:center; gap:7px; padding:7px 11px;
+  border-radius:18px; background:#900f1bde; font-size:12px;
+}
+#recordStatus.on { display:flex; }
+.rec-dot { width:7px; height:7px; background:#fff; border-radius:50%; }
+#permission {
+  position:absolute; z-index:15; inset:0; display:flex;
+  align-items:center; justify-content:center; padding:25px;
+  background:radial-gradient(ellipse at center,#20242c,#050608 75%);
+}
+.permission-card {
+  max-width:350px; width:100%; padding:24px;
+  border:1px solid #ffffff24; border-radius:22px;
+  background:#11141beF; text-align:center;
+}
+.permission-card h1 { font-size:23px; margin:0 0 10px; }
+.permission-card p { color:#c0c4ce; font-size:13px; line-height:1.6; }
+.permission-card button {
+  border:0; border-radius:12px; padding:13px; width:100%;
+  margin-top:10px; font-weight:800; background:var(--accent); color:#17130c;
+}
+#message {
+  position:absolute; z-index:30; bottom:125px; left:50%;
+  transform:translateX(-50%); max-width:90%; padding:10px 14px;
+  border-radius:12px; background:#20232beF; font-size:12px;
+  display:none; text-align:center;
+}
+#review {
+  position:absolute; z-index:20; inset:0; display:none;
+  background:#08090c; flex-direction:column; padding:20px;
+  padding-top:calc(20px + env(safe-area-inset-top,0px));
+}
+#review.open { display:flex; }
+#reviewTitle { font-size:14px; color:var(--accent); text-align:center; }
+#reviewMedia {
+  display:block; flex:1; min-height:0; width:100%;
+  object-fit:contain; margin:15px 0;
+}
+.review-actions { display:flex; gap:10px; }
+.review-actions button { flex:1; }
+#review video { background:#000; }
+@media (max-height:500px) {
+  .bottom { padding-top:8px; padding-bottom:8px; }
+  .shutter { width:58px; height:58px; }
+  #settings { max-height:calc(100dvh - 100px); }
+}
+</style>
+</head>
+
+<body>
+<div id="app">
+  <video id="camera" autoplay playsinline muted></video>
+  <canvas id="output"></canvas>
+
+  <div class="topbar">
+    <div class="glass" style="padding:9px 12px">
+      <div class="brand">HORIZON <span style="color:var(--accent)">FILM PRO</span></div>
+      <div style="font-size:9px;color:#b7bac2;margin-top:3px">MOBILE CINEMA</div>
+    </div>
+    <button id="flipBtn" class="small-btn">↻ Flip</button>
+    <button id="settingsBtn" class="small-btn">☷ Controls</button>
+  </div>
+
+  <div class="statusline" id="sceneStatus">Starting camera…</div>
+
+  <div class="level" id="levelGuide">
+    <div class="level-line" id="levelLine"></div>
+    <div class="level-dot"></div>
+  </div>
+
+  <div id="recordStatus"><span class="rec-dot"></span><span id="timer">00:00</span> REC</div>
+
+  <section id="settings">
+    <div class="panel-title">
+      <span>CAMERA CONTROLS</span>
+      <button id="closeSettings" class="small-btn">✕</button>
+    </div>
+
+    <div class="section">
+      <div class="label-row"><span>Scene assistant</span><span class="value" id="sceneConfidence">Analyzing</span></div>
+      <div id="sceneDetail" class="hint">Analyzes sampled image colors and brightness. Results are visual estimates.</div>
+      <label class="toggle-row"><span>Automatic scene look</span><input id="autoLook" type="checkbox" checked></label>
+    </div>
+
+    <div class="section">
+      <div class="label-row"><span>Color profile</span></div>
+      <select id="filterSelect">
+        <option value="natural">Natural</option>
+        <option value="cinematic">Cinematic</option>
+        <option value="vivid">Vivid</option>
+        <option value="golden">Golden Hour</option>
+        <option value="cool">Cool Film</option>
+        <option value="noir">Classic Noir</option>
+        <option value="soft">Soft Portrait</option>
+        <option value="mono">Monochrome</option>
+      </select>
+      <div class="hint">Looks are applied to the viewfinder, photos and canvas-recorded video.</div>
+    </div>
+
+    <div class="section">
+      <div class="label-row"><span>Zoom</span><span class="value" id="zoomValue">1.0×</span></div>
+      <input id="zoomSlider" type="range" min="1" max="3" step="0.1" value="1">
+      <div class="hint" id="zoomHint">Digital crop until hardware zoom is available.</div>
+    </div>
+
+    <div class="section">
+      <div class="label-row"><span>Exposure compensation</span><span class="value" id="exposureValue">0</span></div>
+      <input id="exposureSlider" type="range" min="-2" max="2" step="0.1" value="0">
+      <div class="hint" id="exposureHint">Uses camera exposure compensation if supported; otherwise applies a preview/recording brightness adjustment.</div>
+    </div>
+
+    <div class="section">
+      <label class="toggle-row"><span>Horizon guide</span><input id="showLevel" type="checkbox" checked></label>
+      <label class="toggle-row"><span>Software level correction</span><input id="levelMode" type="checkbox"></label>
+      <label class="toggle-row"><span>Gimbal-style smoothing</span><input id="gimbalMode" type="checkbox"></label>
+      <div class="hint" id="sensorHint">Motion sensors have not been checked.</div>
+    </div>
+
+    <div class="section">
+      <div class="label-row"><span>Capture quality</span></div>
+      <select id="qualitySelect">
+        <option value="720">HD 720p — lower load</option>
+        <option value="1080" selected>Full HD 1080p — recommended</option>
+        <option value="native">Camera resolution — device dependent</option>
+      </select>
+      <div class="hint">High resolution and stabilization can increase heat, battery use and dropped frames.</div>
+      <button id="photoBtn" class="panel-btn primary">Capture Photo</button>
+      <button id="downloadVideoBtn" class="panel-btn" disabled>Download Last Video</button>
+      <button id="downloadPhotoBtn" class="panel-btn" disabled>Download Last Photo</button>
+    </div>
+  </section>
+
+  <div class="bottom">
+    <div class="control-group">
+      <button id="recordBtn" class="shutter" aria-label="Start recording"></button>
+      <div class="side-label">RECORD</div>
+    </div>
+    <div class="control-group">
+      <button id="stopBtn" class="stop" aria-label="Stop recording"><span></span></button>
+      <div class="side-label">STOP</div>
+    </div>
+  </div>
+
+  <div id="message"></div>
+
+  <div id="permission">
+    <div class="permission-card">
+      <h1>Horizon Film Pro</h1>
+      <p>Start the camera to enable the live viewfinder, scene assistant, photo capture and video recording. Allow camera and, if requested, microphone access.</p>
+      <button id="startBtn">Start Camera</button>
+      <p style="font-size:11px">Use HTTPS or localhost. Some browser features are unavailable on insecure pages.</p>
+    </div>
+  </div>
+
+  <div id="review">
+    <div id="reviewTitle">CAPTURE REVIEW</div>
+    <img id="reviewImage" alt="Captured photo" style="display:none;max-width:100%;max-height:70vh;object-fit:contain;margin:auto">
+    <video id="reviewVideo" controls playsinline style="display:none;flex:1;min-height:0;width:100%;object-fit:contain;margin:15px 0"></video>
+    <div class="review-actions">
+      <button id="reviewClose" class="panel-btn">Back to camera</button>
+      <button id="reviewDownload" class="panel-btn primary">Download</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+"use strict";
+
+const $ = id => document.getElementById(id);
+const video = $("camera");
+const canvas = $("output");
+const ctx = canvas.getContext("2d", { alpha:false });
+const sceneStatus = $("sceneStatus");
+
+let stream = null;
+let recorder = null;
+let recordingChunks = [];
+let lastVideoBlob = null;
+let lastVideoUrl = "";
+let lastPhotoUrl = "";
+let reviewUrl = "";
+let facingMode = "environment";
+let recording = false;
+let recordStarted = 0;
+let timerHandle = null;
+let animationHandle = 0;
+let lastAnalysis = 0;
+let sceneName = "Analyzing scene";
+let sceneConfidence = "Analyzing";
+let sensorAvailable = false;
+let sensorPermissionGranted = false;
+let rawRoll = 0;
+let smoothRoll = 0;
+let lastSensorTime = 0;
+let zoom = 1;
+let exposure = 0;
+let currentProfile = "natural";
+let hardwareZoomMax = 1;
+let hardwareExposure = false;
+let activeTrack = null;
+let lastPhotoBlob = null;
+let lastPhotoFilename = "";
+let canvasStream = null;
+let cameraReady = false;
+let lastError = "";
+let mediaMime = "";
+let sceneStats = { brightness:128, r:128, g:128, b:128, saturation:0 };
+let selectedQuality = "1080";
+
+const profiles = {
+  natural:   { css:"none", contrast:1, brightness:1, saturate:1 },
+  cinematic: { css:"contrast(1.12) saturate(1.12)", contrast:1.04, brightness:1, saturate:1.04 },
+  vivid:     { css:"saturate(1.4) contrast(1.08)", contrast:1.05, brightness:1.02, saturate:1.15 },
+  golden:    { css:"sepia(.16) saturate(1.22) contrast(1.04)", contrast:1.04, brightness:1.04, saturate:1.08 },
+  cool:      { css:"hue-rotate(8deg) saturate(.9) contrast(1.08)", contrast:1.08, brightness:1, saturate:.92 },
+  noir:      { css:"grayscale(1) contrast(1.3)", contrast:1.22, brightness:1, saturate:0 },
+  soft:      { css:"saturate(.88) contrast(.94) brightness(1.04)", contrast:.96, brightness:1.04, saturate:.9 },
+  mono:      { css:"grayscale(1)", contrast:1.04, brightness:1, saturate:0 }
+};
+
+function notify(message, ms=3000) {
+  const el = $("message");
+  el.textContent = message;
+  el.style.display = "block";
+  clearTimeout(notify._timer);
+  notify._timer = setTimeout(() => el.style.display="none", ms);
+}
+
+function formatTime(ms) {
+  const s = Math.floor(ms/1000);
+  return String(Math.floor(s/60)).padStart(2,"0")+":"+String(s%60).padStart(2,"0");
+}
+
+function setCameraStatus(text) {
+  sceneStatus.textContent = text;
+}
+
+function chooseMimeType() {
+  if (!window.MediaRecorder) return "";
+  const types = [
+    "video/webm;codecs=vp9,opus",
+    "video/webm;codecs=vp8,opus",
+    "video/webm",
+    "video/mp4"
+  ];
+  return types.find(t => MediaRecorder.isTypeSupported(t)) || "";
+}
+
+async function initCamera() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    throw new Error("Camera access requires a supported browser and HTTPS or localhost.");
+  }
+
+  if (recording) throw new Error("Stop recording before changing the camera.");
+
+  if (stream) {
+    stream.getTracks().forEach(t => t.stop());
+    stream = null;
+  }
+
+  const requested = selectedQuality === "720"
+    ? { width:{ideal:1280}, height:{ideal:720} }
+    : selectedQuality === "1080"
+      ? { width:{ideal:1920}, height:{ideal:1080} }
+      : { width:{ideal:3840}, height:{ideal:2160} };
+
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode:{ ideal:facingMode },
+        ...requested,
+        frameRate:{ ideal:30, max:30 }
+      },
+      audio:true
+    });
+  } catch (firstError) {
+    // Some phones or browsers cannot provide the microphone with the camera.
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video:{ facingMode:{ideal:facingMode}, width:{ideal:1280}, height:{ideal:720} },
+        audio:false
+      });
+      notify("Camera started without microphone audio.");
+    } catch (secondError) {
+      throw secondError;
+    }
+  }
+
+  video.srcObject = stream;
+  await new Promise((resolve, reject) => {
+    if (video.readyState >= 2 && video.videoWidth) return resolve();
+    const timeout = setTimeout(() => reject(new Error("Camera timed out. Please retry.")), 10000);
+    video.onloadedmetadata = () => { clearTimeout(timeout); resolve(); };
+  });
+  await video.play();
+
+  activeTrack = stream.getVideoTracks()[0];
+  cameraReady = true;
+  inspectCapabilities();
+  configureCanvas();
+  await requestSensorPermission();
+  $("permission").style.display = "none";
+  setCameraStatus("Camera ready · analyzing scene");
+  renderLoop();
+  analyzeScene(true);
+}
+
+function inspectCapabilities() {
+  hardwareZoomMax = 1;
+  hardwareExposure = false;
+  let caps = {};
+  try {
+    caps = activeTrack.getCapabilities ? activeTrack.getCapabilities() : {};
+  } catch (_) {}
+  if (caps.zoom && Number.isFinite(caps.zoom.max)) {
+    hardwareZoomMax = Math.max(1, caps.zoom.max);
+  }
+  hardwareExposure = !!(caps.exposureCompensation);
+  $("zoomHint").textContent = hardwareZoomMax > 1
+    ? `Hardware zoom detected up to ${hardwareZoomMax.toFixed(1)}×; higher values use digital crop.`
+    : "No hardware zoom reported. Zoom uses a digital crop.";
+  $("exposureHint").textContent = hardwareExposure
+    ? "Camera exposure compensation is supported; brightness processing may still be used for the final image."
+    : "Hardware exposure control is unavailable; this slider adjusts rendered brightness, not the sensor shutter or ISO.";
+}
+
+function configureCanvas() {
+  if (!video.videoWidth || !video.videoHeight) return;
+  let w = video.videoWidth;
+  let h = video.videoHeight;
+  const maxSide = selectedQuality === "720" ? 1280 :
+                  selectedQuality === "1080" ? 1920 : 2560;
+  const scale = Math.min(1, maxSide / Math.max(w,h));
+  canvas.width = Math.max(2, Math.round(w*scale));
+  canvas.height = Math.max(2, Math.round(h*scale));
+}
+
+async function requestSensorPermission() {
+  sensorAvailable = false;
+  if (!("DeviceOrientationEvent" in window)) {
+    $("sensorHint").textContent = "This browser does not expose device orientation.";
+    return;
+  }
+
+  try {
+    if (typeof DeviceOrientationEvent.requestPermission === "function") {
+      const result = await DeviceOrientationEvent.requestPermission();
+      if (result !== "granted") {
+        $("sensorHint").textContent = "Motion permission denied. Level correction is unavailable.";
+        return;
+      }
+    }
+    sensorPermissionGranted = true;
+    window.addEventListener("deviceorientation", onOrientation, true);
+    $("sensorHint").textContent = "Waiting for motion sensor data… Keep the phone still briefly.";
+  } catch (_) {
+    $("sensorHint").textContent = "Motion sensor permission is unavailable in this browser.";
+  }
+}
+
+function onOrientation(event) {
+  if (event.gamma == null || !Number.isFinite(event.gamma)) return;
+  // gamma is a useful portrait roll estimate, but browser/device conventions vary.
+  rawRoll = Math.max(-45, Math.min(45, event.gamma));
+  sensorAvailable = true;
+  lastSensorTime = performance.now();
+  $("sensorHint").textContent = "Motion sensor active · estimated roll " + rawRoll.toFixed(1) + "°";
+}
+
+function activeRoll() {
+  if (!sensorAvailable || performance.now()-lastSensorTime > 2500) return 0;
+  const target = rawRoll;
+  const smoothing = $("gimbalMode").checked ? 0.075 : 0.22;
+  smoothRoll += (target-smoothRoll)*smoothing;
+  return smoothRoll;
+}
+
+function filterForProfile() {
+  const p = profiles[currentProfile] || profiles.natural;
+  let bright = Math.pow(2, exposure);
+  let css = p.css === "none" ? "" : p.css + " ";
+  // CSS canvas filter brightness acts on the rendered image.
+  css += `brightness(${bright})`;
+  return css.trim();
+}
+
+function renderLoop() {
+  if (!cameraReady) return;
+  const draw = () => {
+    if (!cameraReady) return;
+    if (video.readyState >= 2 && video.videoWidth) {
+      if (canvas.width === 0 || canvas.height === 0) configureCanvas();
+      const w = canvas.width, h = canvas.height;
+      ctx.save();
+      ctx.fillStyle = "#000";
+      ctx.fillRect(0,0,w,h);
+      ctx.filter = filterForProfile();
+
+      const doLevel = $("levelMode").checked && sensorAvailable;
+      const doGimbal = $("gimbalMode").checked && sensorAvailable;
+      const roll = (doLevel || doGimbal) ? activeRoll() : 0;
+      // Rotation correction requires a small crop to avoid exposing corners.
+      const correctionZoom = roll !== 0 ? 1.12 : 1;
+      const totalZoom = zoom * correctionZoom;
+      ctx.translate(w/2,h/2);
+      ctx.rotate(-roll*Math.PI/180);
+      ctx.scale(totalZoom,totalZoom);
+      ctx.drawImage(video,-w/2,-h/2,w,h);
+      ctx.restore();
+    }
+    animationHandle = requestAnimationFrame(draw);
+  };
+  cancelAnimationFrame(animationHandle);
+  animationHandle = requestAnimationFrame(draw);
+}
+
+function analyzeScene(force=false) {
+  if (!cameraReady || video.readyState < 2) return;
+  const now = performance.now();
+  if (!force && now-lastAnalysis < 1800) return;
+  lastAnalysis = now;
+
+  const sample = document.createElement("canvas");
+  sample.width = 48;
+  sample.height = 36;
+  const sctx = sample.getContext("2d", {willReadFrequently:true});
+  try {
+    sctx.drawImage(video,0,0,sample.width,sample.height);
+    const d = sctx.getImageData(0,0,sample.width,sample.height).data;
+    let r=0,g=0,b=0,lum=0,sat=0,n=0;
+    let topBlue=0, bottomGreen=0, bottomBlue=0, warm=0;
+    for (let y=0;y<sample.height;y+=2) {
+      for (let x=0;x<sample.width;x+=2) {
+        const i=(y*sample.width+x)*4;
+        const R=d[i], G=d[i+1], B=d[i+2];
+        const L=.299*R+.587*G+.114*B;
+        r+=R; g+=G; b+=B; lum+=L;
+        sat+=Math.max(R,G,B)-Math.min(R,G,B);
+        if (y<12 && B>R*1.08 && B>G*.95) topBlue++;
+        if (y>22 && G>R*.88 && G>B*.9) bottomGreen++;
+        if (y>18 && B>R*1.08 && B>G*.98) bottomBlue++;
+        if (R>G*1.12 && G>B*1.12 && R>100) warm++;
+        n++;
+      }
+    }
+    r/=n; g/=n; b/=n; lum/=n; sat/=n;
+    sceneStats={brightness:lum,r,g,b,saturation:sat};
+    let name="Balanced scene";
+    let detail="Balanced exposure · natural color";
+    let suggested="natural";
+    let confidence="Low";
+    if (lum<55) {
+      name="Low-light / night";
+      detail="Low average brightness · consider holding steady and adding light";
+      suggested="cinematic"; confidence="Medium";
+    } else if (lum>178 && sat<65) {
+      name="Bright scene";
+      detail="Bright, low-color scene · protect highlights where possible";
+      suggested="natural"; confidence="Medium";
+    } else if (warm>n*.18 && r>g*1.05 && lum>70) {
+      name="Warm light / golden-hour-like";
+      detail="Warm color cast detected · possible sunset, sunrise or warm lighting";
+      suggested="golden"; confidence="Low";
+    } else if (topBlue>n*.08 && b>r*1.08 && lum>65) {
+      name="Blue sky / cool daylight-like";
+      detail="Cool blue tones detected · possible outdoor sky or cool lighting";
+      suggested="cool"; confidence="Low";
+    } else if (bottomGreen>n*.08 && g>r*.92) {
+      name="Green landscape-like";
+      detail="Green-dominant lower frame · possible foliage or landscape";
+      suggested="vivid"; confidence="Low";
+    } else if (bottomBlue>n*.08 && b>r*1.05) {
+      name="Blue / water-like scene";
+      detail="Blue tones detected · water is only a possibility, not confirmed";
+      suggested="cinematic"; confidence="Low";
+    } else if (sat>105) {
+      name="High-color scene";
+      detail="Strong color saturation detected · vivid look may suit this scene";
+      suggested="vivid"; confidence="Low";
+    }
+
+    sceneName=name;
+    sceneConfidence=confidence;
+    $("sceneConfidence").textContent=confidence+" confidence";
+    $("sceneDetail").textContent=detail;
+    if ($("autoLook").checked) {
+      currentProfile=suggested;
+      $("filterSelect").value=suggested;
+    }
+    setCameraStatus(name+" · "+(lum<70?"low light":lum>170?"bright":"exposure analyzed"));
+  } catch (err) {
+    // Canvas readback may fail if the browser blocks camera rendering.
+    setCameraStatus("Scene analysis unavailable");
+  }
+}
+
+// Camera settings are capability-gated. Unsupported constraints are ignored safely.
+async function applyHardwareControls() {
+  if (!activeTrack || !activeTrack.applyConstraints) return;
+  let caps={};
+  try { caps=activeTrack.getCapabilities ? activeTrack.getCapabilities() : {}; } catch (_) {}
+  const advanced={};
+  if (caps.zoom && hardwareZoomMax>1) {
+    advanced.zoom=Math.max(caps.zoom.min || 1, Math.min(hardwareZoomMax,zoom));
+  }
+  if (caps.exposureCompensation) {
+    advanced.exposureCompensation=Math.max(
+      caps.exposureCompensation.min ?? -2,
+      Math.min(caps.exposureCompensation.max ?? 2,exposure)
+    );
+  }
+  if (!Object.keys(advanced).length) return;
+  try {
+    await activeTrack.applyConstraints({advanced:[advanced]});
+  } catch (_) {
+    // Keep digital rendering controls working even when the hardware rejects a constraint.
+  }
+}
+
+function setZoom(value) {
+  zoom=Math.max(1,Math.min(3,Number(value)||1));
+  $("zoomValue").textContent=zoom.toFixed(1)+"×";
+  applyHardwareControls();
+}
+
+function setExposure(value) {
+  exposure=Math.max(-2,Math.min(2,Number(value)||0));
+  $("exposureValue").textContent=(exposure>0?"+":"")+exposure.toFixed(1)+" EV";
+  applyHardwareControls();
+}
+
+function canvasPhotoBlob() {
+  return new Promise((resolve,reject) => {
+    canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error("Photo could not be created.")), "image/jpeg", .94);
+  });
+}
+
+async function capturePhoto() {
+  if (!cameraReady || !video.videoWidth) {
+    notify("Start the camera first.");
+    return;
+  }
+  try {
+    const blob=await canvasPhotoBlob();
+    lastPhotoBlob=blob;
+    if (lastPhotoUrl) URL.revokeObjectURL(lastPhotoUrl);
+    lastPhotoUrl=URL.createObjectURL(blob);
+    $("downloadPhotoBtn").disabled=false;
+    showReview("photo",lastPhotoUrl);
+  } catch (err) {
+    notify(err.message || "Photo capture failed.");
+  }
+}
+
+function chooseRecorderType() {
+  mediaMime=chooseMimeType();
+  return mediaMime;
+}
+
+async function startRecording() {
+  if (!cameraReady || !stream) {
+    notify("Start the camera first.");
+    return;
+  }
+  if (recording) return;
+  if (!window.MediaRecorder || !canvas.captureStream) {
+    notify("This browser does not support canvas video recording.");
+    return;
+  }
+
+  try {
+    // Video is recorded from the processed canvas so filters and software leveling are included.
+    canvasStream=canvas.captureStream(30);
+    const tracks=[...canvasStream.getVideoTracks()];
+    stream.getAudioTracks().forEach(t => tracks.push(t));
+    const mixedStream=new MediaStream(tracks);
+    const mime=chooseRecorderType();
+    const options={videoBitsPerSecond: selectedQuality==="720" ? 4500000 : 8000000};
+    if (mime) options.mimeType=mime;
+    recorder=new MediaRecorder(mixedStream,options);
+    recordingChunks=[];
+
+    recorder.ondataavailable=e=>{
+      if (e.data && e.data.size) recordingChunks.push(e.data);
+    };
+    recorder.onerror=e=>{
+      notify("Recording error: "+(e.error?.message || "unknown error"));
+    };
+    recorder.onstop=()=>{
+      const type=recorder.mimeType || mime || "video/webm";
+      lastVideoBlob=new Blob(recordingChunks,{type});
+      if (lastVideoUrl) URL.revokeObjectURL(lastVideoUrl);
+      lastVideoUrl=URL.createObjectURL(lastVideoBlob);
+      $("downloadVideoBtn").disabled=false;
+      $("recordStatus").classList.remove("on");
+      $("recordBtn").classList.remove("recording");
+      $("recordBtn").setAttribute("aria-label","Start recording");
+      recording=false;
+      clearInterval(timerHandle);
+      $("timer").textContent="00:00";
+      if (canvasStream) {
+        canvasStream.getTracks().forEach(t=>t.stop());
+        canvasStream=null;
+      }
+      if (lastVideoBlob.size) {
+        showReview("video",lastVideoUrl);
+        notify("Recording saved in the review screen. Tap Download to save it.");
+      } else {
+        notify("No video data was received. Please try again.");
+      }
+    };
+
+    recorder.start(500);
+    recording=true;
+    recordStarted=Date.now();
+    $("recordBtn").classList.add("recording");
+    $("recordBtn").setAttribute("aria-label","Recording in progress");
+    $("recordStatus").classList.add("on");
+    $("timer").textContent="00:00";
+    timerHandle=setInterval(()=>{
+      $("timer").textContent=formatTime(Date.now()-recordStarted);
+    },250);
+    notify("Recording started.");
+  } catch (err) {
+    if (canvasStream) canvasStream.getTracks().forEach(t=>t.stop());
+    canvasStream=null;
+    notify("Could not start recording: "+(err.message || "unsupported format"));
+  }
+}
+
+function stopRecording() {
+  if (!recording || !recorder) {
+    notify("No recording is in progress.");
+    return;
+  }
+  try {
+    if (recorder.state !== "inactive") recorder.stop();
+  } catch (err) {
+    notify("Could not stop recording: "+err.message);
+  }
+}
+
+function downloadBlob(blob, filename) {
+  if (!blob) {
+    notify("There is no saved capture yet.");
+    return;
+  }
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url;
+  a.download=filename;
+  a.style.display="none";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),30000);
+}
+
+function downloadLastVideo() {
+  if (!lastVideoBlob) return notify("Record a video first.");
+  const ext=(lastVideoBlob.type||"").includes("mp4")?"mp4":"webm";
+  downloadBlob(lastVideoBlob,"HorizonFilmPro_"+Date.now()+"."+ext);
+}
+
+function downloadLastPhoto() {
+  if (!lastPhotoBlob) return notify("Capture a photo first.");
+  downloadBlob(lastPhotoBlob,"HorizonFilmPro_"+Date.now()+".jpg");
+}
+
+function showReview(type,url) {
+  $("review").classList.add("open");
+  $("reviewImage").style.display=type==="photo"?"block":"none";
+  $("reviewVideo").style.display=type==="video"?"block":"none";
+  if (type==="photo") {
+    $("reviewImage").src=url;
+    $("reviewTitle").textContent="PHOTO REVIEW · "+sceneName.toUpperCase();
+  } else {
+    $("reviewVideo").src=url;
+    $("reviewTitle").textContent="VIDEO REVIEW";
+    $("reviewVideo").load();
+  }
+  reviewUrl=url;
+  $("reviewDownload").textContent="Download";
+  $("settings").classList.remove("open");
+}
+
+function closeReview() {
+  $("review").classList.remove("open");
+  $("reviewVideo").pause();
+  $("reviewVideo").removeAttribute("src");
+  $("reviewVideo").load();
+}
+
+$("startBtn").addEventListener("click",async()=>{
+  $("startBtn").disabled=true;
+  $("startBtn").textContent="Starting…";
+  try {
+    await initCamera();
+    notify("Camera ready.");
+  } catch (err) {
+    lastError=err.message || String(err);
+    notify(lastError,6000);
+    $("permission").style.display="flex";
+    $("startBtn").textContent="Retry Camera";
+  } finally {
+    $("startBtn").disabled=false;
+  }
+});
+
+$("flipBtn").addEventListener("click",async()=>{
+  if (recording) return notify("Stop recording before flipping the camera.");
+  facingMode=facingMode==="environment"?"user":"environment";
+  try {
+    await initCamera();
+    notify(facingMode==="user"?"Front camera":"Rear camera");
+  } catch (err) {
+    facingMode=facingMode==="user"?"environment":"user";
+    notify("Could not switch camera: "+err.message);
+  }
+});
+
+$("settingsBtn").addEventListener("click",()=>$("settings").classList.toggle("open"));
+$("closeSettings").addEventListener("click",()=>$("settings").classList.remove("open"));
+$("recordBtn").addEventListener("click",startRecording);
+$("stopBtn").addEventListener("click",stopRecording);
+$("photoBtn").addEventListener("click",capturePhoto);
+$("downloadVideoBtn").addEventListener("click",downloadLastVideo);
+$("downloadPhotoBtn").addEventListener("click",downloadLastPhoto);
+$("reviewClose").addEventListener("click",closeReview);
+$("reviewDownload").addEventListener("click",()=>{
+  if ($("reviewVideo").style.display==="block") downloadLastVideo();
+  else downloadLastPhoto();
+});
+
+$("zoomSlider").addEventListener("input",e=>setZoom(e.target.value));
+$("exposureSlider").addEventListener("input",e=>setExposure(e.target.value));
+$("filterSelect").addEventListener("change",e=>{
+  currentProfile=e.target.value;
+  $("autoLook").checked=false;
+});
+$("autoLook").addEventListener("change",()=>{
+  if ($("autoLook").checked) analyzeScene(true);
+});
+$("showLevel").addEventListener("change",e=>{
+  $("levelGuide").style.display=e.target.checked?"block":"none";
+});
+$("levelMode").addEventListener("change",e=>{
+  if (e.target.checked && !sensorAvailable) notify("No motion data yet. Check sensor permission and try again.");
+});
+$("gimbalMode").addEventListener("change",e=>{
+  if (e.target.checked && !sensorAvailable) notify("Gimbal-style correction needs working motion sensors.");
+});
+$("qualitySelect").addEventListener("change",async e=>{
+  selectedQuality=e.target.value;
+  if (!cameraReady) return;
+  if (recording) {
+    notify("Stop recording before changing capture quality.");
+    e.target.value="1080";
+    selectedQuality="1080";
+    return;
+  }
+  try {
+    await initCamera();
+    notify("Capture quality updated.");
+  } catch(err) {
+    notify("Could not change quality: "+err.message);
+  }
+});
+
+setInterval(()=>analyzeScene(false),2000);
+
+document.addEventListener("visibilitychange",()=>{
+  if (document.hidden && recording) {
+    // Do not automatically stop: browser backgrounding behavior varies.
+    notify("Keep this tab open and active during recording.",4000);
+  }
+});
+
+window.addEventListener("beforeunload",()=>{
+  cameraReady=false;
+  cancelAnimationFrame(animationHandle);
+  if (stream) stream.getTracks().forEach(t=>t.stop());
+  if (canvasStream) canvasStream.getTracks().forEach(t=>t.stop());
+  if (lastVideoUrl) URL.revokeObjectURL(lastVideoUrl);
+  if (lastPhotoUrl) URL.revokeObjectURL(lastPhotoUrl);
+});
+})();
+</script>
+</body>
+</html>
